@@ -1,4 +1,4 @@
-![StreamCache banner](Screenshot_20260824_222340.png)
+![StreamCache banner](streamcache.png)
 
 # StreamCache
 
