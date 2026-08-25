@@ -1,3 +1,5 @@
+![StreamCache banner](Screenshot_20260824_222340.png)
+
 # StreamCache
 
 StreamCache is an interactive Bash front end for [yt-dlp](https://github.com/yt-dlp/yt-dlp) that archives YouTube and YouTube Music media with sensible defaults, resumable playlist support, optional metadata, and simple terminal prompts.
