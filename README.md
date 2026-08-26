@@ -1,94 +1,160 @@
-![StreamCache banner](streamcache.png)
+# StreamCache Bash Frontend v0.12.0
 
-# StreamCache
+Interactive multi-source media archiver powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
-StreamCache is an interactive Bash front end for [yt-dlp](https://github.com/yt-dlp/yt-dlp) that archives YouTube and YouTube Music media with sensible defaults, resumable playlist support, optional metadata, and simple terminal prompts.
+This folder contains the **Bash** frontend only (not the Python package).
 
-## Features
+## Contents
 
-- Best available video and audio, merged to MKV by default
-- MP4-compatible download mode
-- Audio-only MP3 conversion with embedded cover art
-- Playlist support with organized output folders
-- Resume-safe downloads using yt-dlp's download archive
-- Optional subtitles, metadata sidecars, thumbnails, and browser cookies
-- Dry-run preview mode and terminal progress display
-- Optional yt-dlp update check for openSUSE/RPM installations
+| File | Description |
+|---|---|
+| `streamcache` | Main interactive Bash script (v0.12.0) |
+| `install.sh` | Optional installer (shell and/or Python package from a full repo checkout) |
+| `README.md` | This file |
 
 ## Requirements
 
-- Linux system with Bash 4+
-- `yt-dlp`
-- `ffmpeg`
-- `python3` is recommended for yt-dlp installations and optional tooling
-- `sudo` and `zypper` are only needed if you choose StreamCache's automatic dependency-install/update options on openSUSE
+- **Bash** 4+
+- **yt-dlp** on `PATH`
+- **ffmpeg** (merge/remux/MP3/metadata)
+- Optional: browser cookies for sites that bot-check / return HTTP 403
 
-On openSUSE Tumbleweed:
+### openSUSE Tumbleweed
 
-```bash
-sudo zypper install yt-dlp ffmpeg
+```fish
+sudo zypper install ffmpeg yt-dlp
 ```
 
-## Install
+On other distros, install equivalent `ffmpeg` and `yt-dlp` packages.
 
-Place the script somewhere on your `PATH`, then make it executable:
+## Quick install (shell script only)
 
-```bash
-mkdir -p "$HOME/bin"
-cp streamcache-v0.11.32.bash "$HOME/bin/streamcache"
-chmod +x "$HOME/bin/streamcache"
+```fish
+mkdir -p ~/bin
+cp streamcache ~/bin/streamcache
+chmod +x ~/bin/streamcache
 ```
 
-Ensure `$HOME/bin` is on your shell `PATH`, then launch it with:
+Ensure `~/bin` is on your `PATH`:
 
-```bash
+```fish
+# fish
+fish_add_path ~/bin
+
+# bash
+# echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
+```
+
+Run:
+
+```fish
 streamcache
+# or
+~/bin/streamcache
 ```
+
+## Installer script
+
+`install.sh` is designed for use from a **full StreamCache repo checkout** (it can install the shell script and the Python package).
+
+From this folder alone, use it for the shell binary only if you point `--bin-dir` at your preferred location:
+
+```fish
+chmod +x install.sh streamcache
+./install.sh --mode shell --bin-dir ~/bin --force
+```
+
+Notes:
+
+- Default shell install path is `~/bin/streamcache`
+- Existing files are backed up as `streamcache.bak-YYYYMMDD-HHMMSS` when they differ
+- `--mode python` / default `--mode all` expect a repository with `pyproject.toml` next to `scripts/`
+
+If you only have this download folder, prefer the **Quick install** copy steps above.
 
 ## Usage
 
-1. Start `streamcache`.
-2. Select an archive location; the default is `~/Videos/streamcache`.
-3. Paste a YouTube or YouTube Music video, playlist, album, or supported URL.
-4. Use the menu to inspect the source, preview a dry run, or start a download.
-5. Choose video, MP4-compatible video, audio-only MP3, or manual format selection.
+```fish
+streamcache
+```
 
-Downloads are organized below the archive root:
+The script is interactive:
+
+1. Optional yt-dlp update check
+2. Archive root (default: `~/Videos/streamcache`)
+3. Media source URL (any yt-dlp-supported source)
+4. Main menu:
+   - Inspect URL
+   - Start download
+   - Dry run / preview
+   - Change download location
+   - Change URL
+   - Exit
+
+### Download modes
+
+| Mode | Meaning |
+|---|---|
+| `1` | Best available video + audio, **MKV enforced** (default) |
+| `2` | Best MP4-compatible video + audio when possible |
+| `3` | Audio only → high-quality MP3 (V0) with cover art |
+| `4` | Manual max height or exact yt-dlp format ID(s), MKV enforced |
+
+### Optional extras
+
+- English subtitles (video modes)
+- Archival sidecars (info JSON, description, thumbnail)
+- Browser cookies (Firefox, Chromium, Brave, etc.)
+
+## Archive layout
+
+Given archive root `~/Videos/streamcache`:
 
 ```text
 ~/Videos/streamcache/
-├── playlists/
-├── singles/
-├── archive/downloaded.txt
-├── logs/
-└── .streamcache-tmp/
+  playlists/           # playlist / album items
+  singles/             # standalone media
+  logs/                # timestamped run logs
+  archive/
+    downloaded.txt     # yt-dlp download archive (skip already saved IDs)
+  .streamcache-tmp/    # temporary / staging files
 ```
 
-The download archive prevents previously completed media from downloading again. Keep `archive/downloaded.txt` if you want resume-safe behavior across future runs.
+## Tips
 
-## Cookies and private content
+**HTTP 403 / bot checks**
 
-For public media, choose `n` at the browser-cookie prompt unless YouTube returns a 403, bot-check, or sign-in requirement.
+Use browser cookies from the authentication prompt, e.g. Firefox.
 
-For private, age-restricted, members-only, or otherwise account-gated media, choose a browser profile where you are signed in to an account that already has permission. Browser cookies authenticate yt-dlp; they do not bypass access restrictions. A private playlist cannot be downloaded unless the selected account is authorized to view it.
+**Safe resume**
 
-## Impersonation warning
+Interrupted downloads can be retried. Completed items recorded in `archive/downloaded.txt` are skipped.
 
-You may see a warning such as:
+**Debug yt-dlp arguments**
 
-```text
-The extractor specified to use impersonation for this download,
-but no impersonate target is available.
+```fish
+set -x STREAMCACHE_DEBUG 1
+streamcache
 ```
 
-This is usually harmless when the download succeeds. If downloads fail with bot checks or similar errors, install a yt-dlp build with `curl-cffi` support and verify available targets:
+## Version
 
-```bash
-yt-dlp --list-impersonate-targets
+- StreamCache Bash frontend: **0.12.0**
+- Neutral multi-source branding (not locked to a single site)
+- Banner tagline: multi-source media archiver
+
+## Related
+
+Python package / full project:
+
+https://github.com/pixel9-lab/streamcache-python
+
+```fish
+pipx install "git+https://github.com/pixel9-lab/streamcache-python.git"
+# or from a clone:
+./scripts/install.sh
 ```
 
-## Notes
+## License
 
-- Follow YouTube's terms of service and applicable copyright law.
-- Download only media you are allowed to access and archive.
-- Start with **Dry run / preview download** when testing a new URL or format choice.
+MIT (same as the StreamCache project).
