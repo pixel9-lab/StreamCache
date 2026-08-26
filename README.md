@@ -1,3 +1,5 @@
+![StreamCache banner](streamcache.png)
+
 # StreamCache Bash Frontend v0.12.0
 
 Interactive multi-source media archiver powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp).
