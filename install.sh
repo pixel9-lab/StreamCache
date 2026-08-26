@@ -16,6 +16,9 @@ BIN_DIR="${DEFAULT_BIN_DIR}"
 PYTHON_METHOD="pipx" # pipx | pip | editable
 SKIP_DEPS=0
 FORCE=0
+INSTALL_DESKTOP=1
+DESKTOP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+DESKTOP_FILE="${DESKTOP_DIR}/streamcache.desktop"
 
 usage() {
     cat <<'EOF'
@@ -29,6 +32,9 @@ Options:
   --python METHOD     pipx (default), pip, or editable
   --skip-deps         Do not check/install ffmpeg or yt-dlp hints
   --force             Overwrite existing shell install without prompt
+  --no-desktop        Do not add a Start Menu / app launcher entry
+  --desktop-only      Only install/update the Start Menu entry
+  --remove-desktop    Remove the Start Menu entry and exit
   -h, --help          Show this help
 
 Examples:
@@ -36,6 +42,8 @@ Examples:
   ./scripts/install.sh --mode shell
   ./scripts/install.sh --mode python --python editable
   ./scripts/install.sh --bin-dir ~/.local/bin --mode shell
+  ./scripts/install.sh --desktop-only
+  ./scripts/install.sh --remove-desktop
 EOF
 }
 
@@ -73,6 +81,18 @@ parse_args() {
                 FORCE=1
                 shift
                 ;;
+            --no-desktop)
+                INSTALL_DESKTOP=0
+                shift
+                ;;
+            --desktop-only)
+                MODE="desktop"
+                shift
+                ;;
+            --remove-desktop)
+                MODE="remove-desktop"
+                shift
+                ;;
             -h|--help)
                 usage
                 exit 0
@@ -84,8 +104,8 @@ parse_args() {
     done
 
     case "$MODE" in
-        all|shell|python) ;;
-        *) die "Invalid --mode: $MODE (use all, shell, or python)" ;;
+        all|shell|python|desktop|remove-desktop) ;;
+        *) die "Invalid --mode: $MODE (use all, shell, python, desktop, or remove-desktop)" ;;
     esac
     case "$PYTHON_METHOD" in
         pipx|pip|editable) ;;
@@ -158,6 +178,100 @@ install_shell() {
     fi
 }
 
+resolve_streamcache_exec() {
+    # Prefer an installed shell script, then PATH lookup.
+    local candidate="${BIN_DIR%/}/streamcache"
+    if [[ -x "$candidate" ]]; then
+        printf '%s\n' "$candidate"
+        return 0
+    fi
+    if command -v streamcache >/dev/null 2>&1; then
+        command -v streamcache
+        return 0
+    fi
+    if [[ -x "$SHELL_SOURCE" ]]; then
+        printf '%s\n' "$SHELL_SOURCE"
+        return 0
+    fi
+    return 1
+}
+
+install_desktop_entry() {
+    say "Installing Start Menu launcher"
+    local exec_path terminal_emu
+    exec_path="$(resolve_streamcache_exec)" || die \
+        "No streamcache executable found. Install the shell or Python app first, or pass --bin-dir."
+
+    mkdir -p "$DESKTOP_DIR" || die "Could not create $DESKTOP_DIR"
+
+    # Prefer a terminal that can run a command then keep the session open for UI work.
+    # StreamCache is interactive, so the .desktop entry must launch inside a terminal.
+    terminal_emu=""
+    if command -v konsole >/dev/null 2>&1; then
+        # KDE / openSUSE default path
+        cat > "$DESKTOP_FILE" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=StreamCache
+GenericName=Media Archiver
+Comment=Interactive multi-source media archiver (yt-dlp) v${VERSION}
+Exec=konsole -e "$exec_path"
+Icon=folder-videos
+Terminal=false
+Categories=AudioVideo;Network;Utility;
+Keywords=download;archive;yt-dlp;video;audio;playlist;
+StartupNotify=true
+EOF
+    else
+        # Portable FreeDesktop style: let the desktop environment open a terminal.
+        cat > "$DESKTOP_FILE" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=StreamCache
+GenericName=Media Archiver
+Comment=Interactive multi-source media archiver (yt-dlp) v${VERSION}
+Exec="$exec_path"
+Icon=folder-videos
+Terminal=true
+Categories=AudioVideo;Network;Utility;
+Keywords=download;archive;yt-dlp;video;audio;playlist;
+StartupNotify=true
+EOF
+    fi
+
+    chmod 0644 "$DESKTOP_FILE" || true
+    printf 'Desktop entry: %s\n' "$DESKTOP_FILE"
+    printf 'Launches:      %s\n' "$exec_path"
+
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
+    fi
+    if command -v xdg-desktop-menu >/dev/null 2>&1; then
+        xdg-desktop-menu forceupdate >/dev/null 2>&1 || true
+    fi
+
+    printf 'StreamCache should appear in your application / start menu shortly.\n'
+    printf 'If it does not, log out/in or run: update-desktop-database %s\n' "$DESKTOP_DIR"
+}
+
+remove_desktop_entry() {
+    say "Removing Start Menu launcher"
+    if [[ -f "$DESKTOP_FILE" ]]; then
+        rm -f "$DESKTOP_FILE"
+        printf 'Removed: %s\n' "$DESKTOP_FILE"
+        if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
+        fi
+        if command -v xdg-desktop-menu >/dev/null 2>&1; then
+            xdg-desktop-menu forceupdate >/dev/null 2>&1 || true
+        fi
+    else
+        printf 'No desktop entry found at %s\n' "$DESKTOP_FILE"
+    fi
+}
+
 install_python() {
     say "Installing Python StreamCache ${VERSION} (${PYTHON_METHOD})"
     need_cmd python3
@@ -197,6 +311,20 @@ main() {
     printf 'Mode:   %s\n' "$MODE"
     printf 'Bin:    %s\n' "$BIN_DIR"
     printf 'Python: %s\n' "$PYTHON_METHOD"
+    printf 'Menu:   %s\n' "$([[ "$INSTALL_DESKTOP" -eq 1 ]] && echo yes || echo no)"
+
+    case "$MODE" in
+        remove-desktop)
+            remove_desktop_entry
+            say "Done"
+            return 0
+            ;;
+        desktop)
+            install_desktop_entry
+            say "Done"
+            return 0
+            ;;
+    esac
 
     check_deps
 
@@ -213,9 +341,16 @@ main() {
             ;;
     esac
 
+    if (( INSTALL_DESKTOP )); then
+        install_desktop_entry || warn "Start Menu entry was not installed."
+    fi
+
     say "Done"
     printf 'Shell script source: %s\n' "$SHELL_SOURCE"
     printf 'Installed shell target: %s/streamcache\n' "${BIN_DIR%/}"
+    if [[ -f "$DESKTOP_FILE" ]]; then
+        printf 'Start menu entry: %s\n' "$DESKTOP_FILE"
+    fi
     if command -v streamcache >/dev/null 2>&1; then
         printf 'Active command: %s\n' "$(command -v -a streamcache 2>/dev/null | tr '\n' ' ')"
     fi

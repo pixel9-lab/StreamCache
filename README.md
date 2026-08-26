@@ -1,5 +1,3 @@
-![StreamCache banner](streamcache.png)
-
 # StreamCache Bash Frontend v0.12.0
 
 Interactive multi-source media archiver powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp).
@@ -57,22 +55,37 @@ streamcache
 
 ## Installer script
 
-`install.sh` is designed for use from a **full StreamCache repo checkout** (it can install the shell script and the Python package).
+`install.sh` can install the shell binary and add a **Start Menu / application launcher** entry.
 
-From this folder alone, use it for the shell binary only if you point `--bin-dir` at your preferred location:
+From this folder:
 
 ```fish
 chmod +x install.sh streamcache
 ./install.sh --mode shell --bin-dir ~/bin --force
 ```
 
+That installs `~/bin/streamcache` and creates:
+
+```text
+~/.local/share/applications/streamcache.desktop
+```
+
+Menu-only helpers:
+
+```fish
+./install.sh --desktop-only      # add/update Start Menu entry
+./install.sh --no-desktop        # install without menu entry
+./install.sh --remove-desktop    # remove menu entry
+```
+
 Notes:
 
 - Default shell install path is `~/bin/streamcache`
 - Existing files are backed up as `streamcache.bak-YYYYMMDD-HHMMSS` when they differ
-- `--mode python` / default `--mode all` expect a repository with `pyproject.toml` next to `scripts/`
+- On KDE/openSUSE the launcher opens StreamCache in **Konsole**; other desktops use a generic terminal (`Terminal=true`)
+- `--mode python` / default `--mode all` expect a full repo checkout with `pyproject.toml` (not required for shell + desktop from this folder)
 
-If you only have this download folder, prefer the **Quick install** copy steps above.
+If you only want a manual copy without the menu entry, use **Quick install** above, then optionally run `./install.sh --desktop-only`.
 
 ## Usage
 
